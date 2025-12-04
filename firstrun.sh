@@ -48,7 +48,7 @@ move_root_to_nvme() {
      / "$NVME_MNT"/ || { umount "$NVME_MNT"; return; }
 
    cp /etc/fstab "$NVME_MNT/etc/fstab"
-   sed -i 's@^[^#][^[:space:]]*[[:space:]]\\+/[[:space:]].*@LABEL=rpios-root / ext4 defaults,noatime 0 1@' "$NVME_MNT/etc/fstab"
+   sed -i 's@^[^#][^[:space:]]*[[:space:]]/[[:space:]].*@LABEL=rpios-root / ext4 defaults,noatime 0 1@' "$NVME_MNT/etc/fstab"
    if ! grep -qE '^[^#].*[[:space:]]/boot([[:space:]]|/)' "$NVME_MNT/etc/fstab"; then
       BOOT_LINE=$(grep -E '^[^#].*[[:space:]]/boot([[:space:]]|/)' /etc/fstab | head -n1)
       if [ -n "$BOOT_LINE" ]; then
@@ -138,6 +138,8 @@ XKBOPTIONS=""
 KBEOF
    dpkg-reconfigure -f noninteractive keyboard-configuration
 fi
+move_root_to_nvme
 rm -f /boot/firstrun.sh
-sed -i 's| systemd.run.*||g' /boot/cmdline.txt
+rm -f /boot/firmware/firstrun.sh
+sed -i 's| systemd.run.*||g' "$CMDLINE_PATH"
 exit 0
