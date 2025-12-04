@@ -1,0 +1,35 @@
+# Docker volumes og data
+homeassistant/
+mosquitto/data/
+mosquitto/log/
+nodered/data/
+zigbee2mqtt/data/
+portainer/data/
+
+# Faktisk docker-compose.yml (generert av install.sh)
+docker-compose.yml
+
+# Logs
+*.log
+
+# Secrets og passord
+*.secret
+*.key
+*.pem
+passwords.txt
+secrets.yaml
+
+# OS filer
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Backup filer
+*.backup
+*.bak
+backup/
+
+# Environment filer med secrets
+.env

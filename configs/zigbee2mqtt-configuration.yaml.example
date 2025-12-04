@@ -1,0 +1,78 @@
+# Zigbee2MQTT Configuration
+# Denne filen plasseres i zigbee2mqtt/data/configuration.yaml
+
+# Home Assistant integrasjon
+homeassistant: true
+
+# Tillat nye enheter å paire (sett til false etter oppsett for sikkerhet)
+permit_join: false
+
+# MQTT innstillinger
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtt://mosquitto:1883
+  # For autentisering:
+  # user: mqtt_user
+  # password: mqtt_password
+
+# Serial port konfigurasjon (Zigbee adapter)
+serial:
+  # Vanlige porter for Zigbee adaptere:
+  # - /dev/ttyUSB0 (Conbee II, CC2531, etc.)
+  # - /dev/ttyACM0 (Sonoff Zigbee 3.0 USB Dongle Plus)
+  # - /dev/ttyAMA0 (for GPIO baserte adaptere)
+  port: /dev/ttyUSB0
+  # adapter: auto  # eller 'deconz', 'zigate', 'ezsp', 'zstack'
+
+# Web frontend
+frontend:
+  port: 8080
+  # auth_token: VELG_ET_SIKKERT_TOKEN  # Uncomment for sikkerhet
+
+# Avanserte innstillinger
+advanced:
+  # Network key (16 bytes hex) - generes automatisk første gang
+  network_key: GENERATE
+
+  # PAN ID - generes automatisk første gang
+  pan_id: GENERATE
+
+  # Zigbee kanal (11-26, unngå WiFi kanaler)
+  channel: 11
+
+  # Log level: info, warn, error, debug
+  log_level: info
+
+  # Last state on startup
+  last_seen: ISO_8601
+
+  # Elapsed timer
+  elapsed: true
+
+# Enhetsinnstillinger
+device_options:
+  # Rapport interval
+  temperature_precision: 2
+  humidity_precision: 2
+
+# Grupper (valgfritt)
+groups:
+  # '1':
+  #   friendly_name: stue
+  #   devices:
+  #     - 0x00158d0001a2b3c4
+
+# Avansert: External converters for ikke-støttede enheter
+# external_converters:
+#   - external_converter.js
+
+# Tilgjengelighetssjekk for enheter
+availability:
+  active:
+    timeout: 10
+  passive:
+    timeout: 1500
+
+# OTA (Over-The-Air) firmware oppdateringer
+ota:
+  disable_automatic_update_check: false
