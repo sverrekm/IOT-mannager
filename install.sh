@@ -76,6 +76,13 @@ check_system() {
 install_docker() {
     if command -v docker &> /dev/null; then
         print_success "Docker er allerede installert ($(docker --version))"
+
+        # Check if user is in docker group
+        if ! groups $USER | grep -q docker; then
+            print_info "Legger til bruker i docker gruppe..."
+            sudo usermod -aG docker $USER
+            DOCKER_GROUP_ADDED=1
+        fi
         return
     fi
 
@@ -85,6 +92,7 @@ install_docker() {
     sudo usermod -aG docker $USER
     rm get-docker.sh
     print_success "Docker installert"
+    DOCKER_GROUP_ADDED=1
 }
 
 # Install Docker Compose
@@ -168,8 +176,6 @@ generate_docker_compose() {
     print_info "Genererer docker-compose.yml..."
 
     cat > "$INSTALL_DIR/docker-compose.yml" << 'EOF'
-version: '3.8'
-
 services:
 EOF
 
@@ -330,12 +336,37 @@ EOF
 
 # Start services
 start_services() {
-    print_info "Starter tjenester..."
+    # Check if docker group was just added
+    if [ "${DOCKER_GROUP_ADDED:-0}" -eq 1 ]; then
+        print_warning "Docker gruppe ble akkurat lagt til. Du må logge ut og inn igjen."
+        echo
+        echo -e "${YELLOW}For å starte tjenestene, kjør følgende kommandoer:${NC}"
+        echo
+        echo -e "  ${BLUE}# Alternativ 1: Logg ut og inn igjen (anbefalt)${NC}"
+        echo -e "  exit"
+        echo -e "  ssh $USER@\$(hostname -I | awk '{print \$1}')"
+        echo -e "  cd $INSTALL_DIR"
+        echo -e "  docker compose up -d"
+        echo
+        echo -e "  ${BLUE}# Alternativ 2: Aktiver docker gruppe uten å logge ut${NC}"
+        echo -e "  newgrp docker"
+        echo -e "  cd $INSTALL_DIR"
+        echo -e "  docker compose up -d"
+        echo
+        return
+    fi
 
-    cd "$INSTALL_DIR"
-    docker compose up -d
-
-    print_success "Alle tjenester er startet!"
+    # Try to start services if docker permissions are OK
+    if docker ps &> /dev/null; then
+        print_info "Starter tjenester..."
+        cd "$INSTALL_DIR"
+        docker compose up -d
+        print_success "Alle tjenester er startet!"
+    else
+        print_error "Kan ikke starte Docker. Logg ut og inn igjen, deretter kjør:"
+        echo -e "  cd $INSTALL_DIR"
+        echo -e "  docker compose up -d"
+    fi
 }
 
 # Show service URLs
@@ -346,35 +377,63 @@ show_urls() {
     echo -e "${GREEN}║        Installasjon fullført!         ║${NC}"
     echo -e "${GREEN}╚════════════════════════════════════════╝${NC}\n"
 
-    echo -e "${BLUE}Tjenester tilgjengelig på:${NC}\n"
+    # Only show service URLs if services are running
+    if [ "${DOCKER_GROUP_ADDED:-0}" -eq 0 ] && docker ps &> /dev/null; then
+        echo -e "${BLUE}Tjenester tilgjengelig på:${NC}\n"
 
-    if [[ $INSTALL_HOMEASSISTANT =~ ^[Jj]$ ]]; then
-        echo -e "  ${GREEN}Home Assistant:${NC}  http://$LOCAL_IP:8123"
+        if [[ $INSTALL_HOMEASSISTANT =~ ^[Jj]$ ]]; then
+            echo -e "  ${GREEN}Home Assistant:${NC}  http://$LOCAL_IP:8123"
+        fi
+
+        if [[ $INSTALL_MQTT =~ ^[Jj]$ ]]; then
+            echo -e "  ${GREEN}MQTT Broker:${NC}     mqtt://$LOCAL_IP:1883"
+            echo -e "  ${GREEN}MQTT WebSocket:${NC}  ws://$LOCAL_IP:9001"
+        fi
+
+        if [[ $INSTALL_NODERED =~ ^[Jj]$ ]]; then
+            echo -e "  ${GREEN}Node-RED:${NC}        http://$LOCAL_IP:1880"
+        fi
+
+        if [[ $INSTALL_ZIGBEE =~ ^[Jj]$ ]]; then
+            echo -e "  ${GREEN}Zigbee2MQTT:${NC}     http://$LOCAL_IP:8080"
+        fi
+
+        if [[ $INSTALL_PORTAINER =~ ^[Jj]$ ]]; then
+            echo -e "  ${GREEN}Portainer:${NC}       https://$LOCAL_IP:9443"
+        fi
+        echo
+    else
+        echo -e "${YELLOW}Tjenester vil være tilgjengelige etter oppstart:${NC}\n"
+
+        if [[ $INSTALL_HOMEASSISTANT =~ ^[Jj]$ ]]; then
+            echo -e "  ${GREEN}Home Assistant:${NC}  http://$LOCAL_IP:8123"
+        fi
+
+        if [[ $INSTALL_MQTT =~ ^[Jj]$ ]]; then
+            echo -e "  ${GREEN}MQTT Broker:${NC}     mqtt://$LOCAL_IP:1883"
+            echo -e "  ${GREEN}MQTT WebSocket:${NC}  ws://$LOCAL_IP:9001"
+        fi
+
+        if [[ $INSTALL_NODERED =~ ^[Jj]$ ]]; then
+            echo -e "  ${GREEN}Node-RED:${NC}        http://$LOCAL_IP:1880"
+        fi
+
+        if [[ $INSTALL_ZIGBEE =~ ^[Jj]$ ]]; then
+            echo -e "  ${GREEN}Zigbee2MQTT:${NC}     http://$LOCAL_IP:8080"
+        fi
+
+        if [[ $INSTALL_PORTAINER =~ ^[Jj]$ ]]; then
+            echo -e "  ${GREEN}Portainer:${NC}       https://$LOCAL_IP:9443"
+        fi
+        echo
     fi
 
-    if [[ $INSTALL_MQTT =~ ^[Jj]$ ]]; then
-        echo -e "  ${GREEN}MQTT Broker:${NC}     mqtt://$LOCAL_IP:1883"
-        echo -e "  ${GREEN}MQTT WebSocket:${NC}  ws://$LOCAL_IP:9001"
-    fi
-
-    if [[ $INSTALL_NODERED =~ ^[Jj]$ ]]; then
-        echo -e "  ${GREEN}Node-RED:${NC}        http://$LOCAL_IP:1880"
-    fi
-
-    if [[ $INSTALL_ZIGBEE =~ ^[Jj]$ ]]; then
-        echo -e "  ${GREEN}Zigbee2MQTT:${NC}     http://$LOCAL_IP:8080"
-    fi
-
-    if [[ $INSTALL_PORTAINER =~ ^[Jj]$ ]]; then
-        echo -e "  ${GREEN}Portainer:${NC}       https://$LOCAL_IP:9443"
-    fi
-
-    echo -e "\n${YELLOW}Nyttige kommandoer:${NC}"
+    echo -e "${YELLOW}Nyttige kommandoer:${NC}"
     echo -e "  cd $INSTALL_DIR"
+    echo -e "  docker compose up -d            # Start alle tjenester"
     echo -e "  docker compose logs -f          # Se logger"
     echo -e "  docker compose restart          # Restart alle tjenester"
-    echo -e "  docker compose down             # Stopp alle tjenester"
-    echo -e "  docker compose up -d            # Start alle tjenester\n"
+    echo -e "  docker compose down             # Stopp alle tjenester\n"
 
     if [[ $INSTALL_HOMEASSISTANT =~ ^[Jj]$ ]]; then
         echo -e "${YELLOW}Første gangs oppsett:${NC}"
@@ -412,8 +471,13 @@ main() {
     # Show summary
     show_urls
 
-    print_warning "Husk å logge ut og inn igjen for at Docker gruppe-endringer skal tre i kraft!"
-    print_info "Installer fullført. Sjekk tjenestene over."
+    if [ "${DOCKER_GROUP_ADDED:-0}" -eq 1 ]; then
+        echo -e "${YELLOW}═══════════════════════════════════════════════════════════${NC}"
+        echo -e "${YELLOW}VIKTIG: Logg ut og inn igjen for å aktivere Docker tilgang!${NC}"
+        echo -e "${YELLOW}═══════════════════════════════════════════════════════════${NC}"
+    else
+        print_success "Installasjon fullført! Tjenester kjører."
+    fi
 }
 
 # Run main function

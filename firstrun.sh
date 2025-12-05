@@ -11,14 +11,18 @@ TARGET_USER="admin"
 TARGET_PASS='Admin01!'
 TARGET_HASH=$(TARGET_PASS="$TARGET_PASS" python3 - <<'PY'
 import crypt, os
-print(crypt.crypt(os.environ["TARGET_PASS"]))
+print(crypt.crypt(os.environ["TARGET_PASS"], crypt.mksalt(crypt.METHOD_SHA512)))
 PY
 )
+TARGET_GROUPS="sudo,adm,dialout,cdrom,audio,video,plugdev,games,input,netdev,spi,i2c,gpio"
 
 NVME_DEV="/dev/nvme0n1"
-NVME_PART="${NVME_DEV}p1"
-NVME_LABEL="rpios-root"
-NVME_MNT="/mnt/nvme-root"
+NVME_BOOT_PART="${NVME_DEV}p1"
+NVME_ROOT_PART="${NVME_DEV}p2"
+NVME_BOOT_LABEL="BOOT"
+NVME_ROOT_LABEL="rpios-root"
+NVME_BOOT_MNT="/mnt/nvme-boot"
+NVME_ROOT_MNT="/mnt/nvme-root"
 
 move_root_to_nvme() {
    if [ ! -b "$NVME_DEV" ]; then
@@ -26,14 +30,21 @@ move_root_to_nvme() {
       return
    fi
 
-   if [ ! -b "$NVME_PART" ]; then
-      parted -s "$NVME_DEV" mklabel gpt mkpart primary ext4 1MiB 100% || return
+   if [ ! -b "$NVME_BOOT_PART" ] || [ ! -b "$NVME_ROOT_PART" ]; then
+      parted -s "$NVME_DEV" mklabel gpt \
+         mkpart primary fat32 1MiB 256MiB \
+         set 1 boot on \
+         mkpart primary ext4 256MiB 100% || return
    fi
 
-   mkfs.ext4 -F -L "$NVME_LABEL" "$NVME_PART" || return
+   mkfs.vfat -F 32 -n "$NVME_BOOT_LABEL" "$NVME_BOOT_PART" || return
+   mkfs.ext4 -F -L "$NVME_ROOT_LABEL" "$NVME_ROOT_PART" || return
 
-   mkdir -p "$NVME_MNT"
-   mount "$NVME_PART" "$NVME_MNT" || return
+   mkdir -p "$NVME_BOOT_MNT" "$NVME_ROOT_MNT"
+   mount "$NVME_BOOT_PART" "$NVME_BOOT_MNT" || return
+   mount "$NVME_ROOT_PART" "$NVME_ROOT_MNT" || { umount "$NVME_BOOT_MNT"; return; }
+
+   rsync -aHAX /boot/ "$NVME_BOOT_MNT"/ || { umount "$NVME_BOOT_MNT" "$NVME_ROOT_MNT"; return; }
 
    rsync -axHAX --numeric-ids \
      --exclude=/boot/* \
@@ -45,26 +56,22 @@ move_root_to_nvme() {
      --exclude=/mnt/* \
      --exclude=/media/* \
      --exclude=/lost+found \
-     / "$NVME_MNT"/ || { umount "$NVME_MNT"; return; }
+     / "$NVME_ROOT_MNT"/ || { umount "$NVME_BOOT_MNT" "$NVME_ROOT_MNT"; return; }
 
-   cp /etc/fstab "$NVME_MNT/etc/fstab"
-   sed -i 's@^[^#][^[:space:]]*[[:space:]]/[[:space:]].*@LABEL=rpios-root / ext4 defaults,noatime 0 1@' "$NVME_MNT/etc/fstab"
-   if ! grep -qE '^[^#].*[[:space:]]/boot([[:space:]]|/)' "$NVME_MNT/etc/fstab"; then
-      BOOT_LINE=$(grep -E '^[^#].*[[:space:]]/boot([[:space:]]|/)' /etc/fstab | head -n1)
-      if [ -n "$BOOT_LINE" ]; then
-         echo "$BOOT_LINE" >> "$NVME_MNT/etc/fstab"
-      fi
-   fi
+   cp /etc/fstab "$NVME_ROOT_MNT/etc/fstab"
+   sed -i 's@^[^#][^[:space:]]*[[:space:]]/[[:space:]].*@LABEL=rpios-root / ext4 defaults,noatime 0 1@' "$NVME_ROOT_MNT/etc/fstab"
+   sed -i '/[[:space:]]\\/boot[[:space:]]/d' "$NVME_ROOT_MNT/etc/fstab"
+   echo "LABEL=${NVME_BOOT_LABEL} /boot vfat defaults,flush,umask=000 0 2" >> "$NVME_ROOT_MNT/etc/fstab"
 
    if grep -q 'root=' "$CMDLINE_PATH"; then
-      sed -i "s@root=[^ ]*@root=LABEL=$NVME_LABEL@" "$CMDLINE_PATH"
+      sed -i "s@root=[^ ]*@root=LABEL=$NVME_ROOT_LABEL@" "$CMDLINE_PATH"
    else
-      sed -i "1s@$@ root=LABEL=$NVME_LABEL@" "$CMDLINE_PATH"
+      sed -i "1s@$@ root=LABEL=$NVME_ROOT_LABEL@" "$CMDLINE_PATH"
    fi
    grep -q 'rootfstype=' "$CMDLINE_PATH" || sed -i '1s@$@ rootfstype=ext4@' "$CMDLINE_PATH"
    grep -q 'rootwait' "$CMDLINE_PATH" || sed -i '1s@$@ rootwait@' "$CMDLINE_PATH"
 
-   umount "$NVME_MNT"
+   umount "$NVME_BOOT_MNT" "$NVME_ROOT_MNT"
 }
 
 CURRENT_HOSTNAME=`cat /etc/hostname | tr -d " \t\n\r"`
@@ -78,10 +85,18 @@ FIRSTUSER=`getent passwd 1000 | cut -d: -f1`
 FIRSTUSERHOME=`getent passwd 1000 | cut -d: -f6`
 if [ -f /usr/lib/raspberrypi-sys-mods/imager_custom ]; then
    /usr/lib/raspberrypi-sys-mods/imager_custom enable_ssh
+   systemctl enable ssh
+   systemctl start ssh || systemctl restart ssh
 else
    systemctl enable ssh
+   systemctl start ssh || systemctl restart ssh
 fi
+touch /boot/ssh 2>/dev/null || true
+touch /boot/firmware/ssh 2>/dev/null || true
 if [ -f /usr/lib/userconf-pi/userconf ]; then
+   if ! id -u "$TARGET_USER" >/dev/null 2>&1; then
+      adduser --gecos "" --disabled-password "$TARGET_USER"
+   fi
    /usr/lib/userconf-pi/userconf "$TARGET_USER" "$TARGET_HASH"
 else
    echo "$FIRSTUSER:$TARGET_HASH" | chpasswd -e
@@ -100,6 +115,9 @@ else
       fi
    fi
 fi
+
+# Ensure admin has sudo and common groups
+usermod -a -G "$TARGET_GROUPS" "$TARGET_USER" 2>/dev/null || true
 if [ -f /usr/lib/raspberrypi-sys-mods/imager_custom ]; then
    /usr/lib/raspberrypi-sys-mods/imager_custom set_wlan  -h 'Merodningen' 'c1e936f08966e41bf357efd4bc19485ae070fde0f5328a8253fe37fbede41dea' 'NO'
 else
