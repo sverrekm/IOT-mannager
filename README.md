@@ -21,6 +21,9 @@ Automatisk installasjonsskript for å sette opp en komplett IoT server på Raspb
 
 ## Rask installasjon
 
+> **📖 Ønsker du en detaljert steg-for-steg guide?**
+> Se [INSTALL_GUIDE.md](INSTALL_GUIDE.md) for en komplett installasjonsveiledning med forklaringer.
+
 ### Installere via SSH
 
 Koble til Raspberry Pi via SSH og kjør:

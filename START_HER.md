@@ -113,11 +113,12 @@ Etter installasjon, åpne i nettleseren (erstatt `<PI_IP>` med Pi'ens IP):
 
 ## Dokumentasjon
 
-- **README.md** - Komplett dokumentasjon
-- **QUICKSTART.md** - Hurtig guide (5 min)
-- **TROUBLESHOOTING.md** - Feilsøking
-- **GITHUB_SETUP.md** - Detaljert GitHub oppsett
-- **CONTRIBUTING.md** - Hvordan bidra
+- **INSTALL_GUIDE.md** - 📖 **DETALJERT** steg-for-steg installasjonsveiledning (ANBEFALT!)
+- **QUICKSTART.md** - ⚡ Hurtig guide (5 min)
+- **README.md** - 📚 Komplett dokumentasjon
+- **TROUBLESHOOTING.md** - 🔧 Feilsøking
+- **GITHUB_SETUP.md** - 💻 Detaljert GitHub oppsett
+- **CONTRIBUTING.md** - 🤝 Hvordan bidra
 
 ## Hjelp
 
