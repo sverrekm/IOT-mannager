@@ -33,14 +33,49 @@ Skriptet vil spørre hvilke tjenester du vil installere. Trykk `J` (Ja) eller `n
 - Zigbee2MQTT (kun hvis du har Zigbee adapter: J/n)
 - Portainer (valgfri: n)
 
-### 4. Vent på installasjon
+### 4. Fullfør installasjonen
 
-Skriptet vil:
-- Installere Docker
-- Laste ned images
-- Starte tjenester
+Etter at skriptet har kjørt, **MÅ** du aktivere Docker tilgang:
 
-Dette tar 5-10 minutter avhengig av internettforbindelse.
+**Velg ETT alternativ:**
+
+**A) newgrp (raskest)**
+```bash
+newgrp docker
+cd ~/iot-manager
+docker compose up -d
+```
+
+**B) Logg ut og inn**
+```bash
+exit
+ssh admin@<PI_IP>
+cd ~/iot-manager
+docker compose up -d
+```
+
+**C) Bruk sudo**
+```bash
+cd ~/iot-manager
+sudo docker compose up -d
+```
+
+### 5. Vent på første oppstart
+
+**Første gang tar 5-10 minutter** - Docker laster ned alle images.
+
+Se oppstarten:
+```bash
+docker compose logs -f
+# Trykk Ctrl+C for å avslutte
+```
+
+Sjekk status:
+```bash
+docker compose ps
+```
+
+Alle skal vise "Up".
 
 ## Første gangs oppsett
 

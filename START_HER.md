@@ -67,11 +67,42 @@ chmod +x install.sh
 Skriptet vil:
 1. Sjekke systemkrav
 2. Installere Docker og Docker Compose
-3. La deg velge tjenester
-4. Sette opp alt automatisk
-5. Starte tjenestene
+3. Legge til deg i Docker gruppe
+4. La deg velge tjenester
+5. Sette opp alt automatisk
 
-### 5. Åpne tjenestene
+### 5. VIKTIG: Fullfør installasjonen
+
+**Etter at install.sh er ferdig, MÅ du kjøre:**
+
+```bash
+# Aktiver docker tilgang
+newgrp docker
+
+# Start tjenestene
+cd ~/iot-manager
+docker compose up -d
+```
+
+**Alternativt: Logg ut og inn igjen**
+```bash
+exit
+ssh admin@<PI_IP>
+cd ~/iot-manager
+docker compose up -d
+```
+
+### 6. Overvåk første oppstart (5-10 minutter)
+
+```bash
+# Se at images lastes ned
+docker compose logs -f
+
+# Sjekk status (alle skal være "Up")
+docker compose ps
+```
+
+### 7. Åpne tjenestene
 
 Etter installasjon, åpne i nettleseren (erstatt `<PI_IP>` med Pi'ens IP):
 

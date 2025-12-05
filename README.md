@@ -56,11 +56,69 @@ Skriptet vil:
 
 1. Sjekke systemkrav
 2. Installere Docker og Docker Compose (hvis ikke allerede installert)
-3. La deg velge hvilke tjenester du vil installere
-4. Opprette nødvendig mappestruktur
-5. Generere docker-compose.yml basert på dine valg
-6. Opprette konfigurasjonsfiler
-7. Starte alle valgte tjenester
+3. Legge til brukeren din i Docker gruppe
+4. La deg velge hvilke tjenester du vil installere
+5. Opprette nødvendig mappestruktur
+6. Generere docker-compose.yml basert på dine valg
+7. Opprette konfigurasjonsfiler
+
+### Viktig: Fullføre installasjonen
+
+Etter at skriptet har kjørt, må du aktivere Docker tilgang før tjenestene kan startes.
+
+**Velg ett av disse alternativene:**
+
+#### Alternativ 1: newgrp (raskest, anbefalt)
+```bash
+# Aktiver docker gruppe i current session
+newgrp docker
+
+# Start tjenestene
+cd ~/iot-manager
+docker compose up -d
+```
+
+#### Alternativ 2: Logg ut og inn (mest ryddig)
+```bash
+# Logg ut
+exit
+
+# Logg inn igjen via SSH
+ssh admin@<PI_IP>
+
+# Start tjenestene
+cd ~/iot-manager
+docker compose up -d
+```
+
+#### Alternativ 3: Bruk sudo (fungerer, men ikke ideelt)
+```bash
+cd ~/iot-manager
+sudo docker compose up -d
+```
+
+### Første oppstart
+
+**Første gang vil ta 5-10 minutter** mens Docker laster ned alle images:
+- Home Assistant (~800 MB)
+- Mosquitto (~10 MB)
+- Node-RED (~400 MB)
+- Portainer (~300 MB)
+
+Overvåk oppstarten:
+```bash
+# Se logger mens alt starter
+docker compose logs -f
+
+# Ctrl+C for å avslutte
+```
+
+Sjekk status:
+```bash
+docker compose ps
+```
+
+Du skal se alle tjenester med status "Up".
 
 ## Tjenester og porter
 
